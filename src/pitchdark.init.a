@@ -47,6 +47,7 @@
 ; detect VidHD by searching for magic bytes across all slots
 ;------------------------------------------------------------------------------
 
+         sta   $C00B                 ; enable Slot 3 card ROM
          ldx   #$c7
 @findVidHD
          stx   @matchVidHD+2
@@ -57,6 +58,7 @@
          bne   @nextslot
          dey
          bpl   @matchVidHD
+         sta   $C00A                 ; restore Apple IIe internal 80-col ROM
          lda   #$90
          sta   PatchVidHD
          bne   @setSHR               ; always
@@ -68,6 +70,7 @@
          dex
          cpx   #$c0
          bne   @findVidHD
+         sta   $C00A                 ; restore Apple IIe internal 80-col ROM
 
 ;------------------------------------------------------------------------------
 ; detect IIGS

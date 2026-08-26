@@ -194,11 +194,11 @@ LoadSHRFile
          sty   mliparam+5
          sty   shrdest+2
 
-         ldx   #4                    ; four quarters
+         lda   #4
+         sta   gSHRQuarter           ; initialize 4 quarters
 -        lda   saverefnum            ; file refnum
          jsr   _readfile
          bcs   close
-         phx
 
 PatchVidHD
          bcs   copyvidhd
@@ -222,8 +222,7 @@ shrdest  ldy   #$FD00                ; SMC
          xce
 !cpu 65C02
 resumeread
-         plx
-         dex
+         dec   gSHRQuarter
          bne   -
 
 close    php                         ; save flags from readfile
@@ -234,22 +233,23 @@ saverefnum=*+1
 exit     rts
 
 copyvidhd
-         lda   $C035
-         and   #$F7 ;Enable SHR shadowing
-         sta   $C035
-         lda   #$a0
+         lda   #$00
+         sta   $C035                 ; enable SHR shadowing (MUST NOT read $C035 first!
+         sta   $C035                 ; write twice - balances speaker click on Apple IIe (4cade VIDHD hack)
+         lda   #$A0
+         ldx   gSHRQuarter
          sec
 @calcdest
          sbc   #$20
          dex
          bne   @calcdest
          sta   $45
-         stx   $44
+         stz   $44
          ldx   #$20
          ldy   #0
          stx   $43
          sty   $42
-         sta   $C005 ;CPU writes go to aux 64K
+         sta   $C005                 ; CPU writes go to aux 64K
 @copyshr
          lda   ($42), y
          sta   ($44), y
@@ -259,9 +259,14 @@ copyvidhd
          inc   $45
          dex
          bne   @copyshr
-         sta   $C004 ;CPU writes go to main 64K
+         sta   $C004                 ; CPU writes go to main 64K
          clc
-         bcc   resumeread
+         dec   gSHRQuarter
+         bne   -
+         beq   close
+
+gSHRQuarter
+         !byte 0
 
 ; SaveFile
 ; save a file to disk all at once, using ProDOS MLI calls
