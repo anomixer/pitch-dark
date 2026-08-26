@@ -367,15 +367,16 @@ CreateNullTerminatedString
 ;        all registers preserved
 ;------------------------------------------------------------------------------
 AnyKeyOrClick
+         lda   $C000                 ; check keyboard
+         bmi   @pressed
          phx
-         ldx   #WGPendingClick
+         ldx   #WGPendingClick       ; check WeeGUI mouse queue
          jsr   WeeGUI
          cpx   #$FF
-         bne   +                     ; X != #$FF -> user clicked mouse
-         ldx   $C000
-         bmi   +
-         clc
-         +HIDE_NEXT_BYTE
-+        sec
+         beq   @noClick
          plx
+@pressed sec
+         rts
+@noClick plx
+         clc
          rts

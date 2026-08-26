@@ -9,7 +9,7 @@
 # adapted by 4am on 2018-01-07
 #
 
-BUILDDISK=build/Pitch Dark.hdv
+BUILDDISK=build/Pitch_Dark.hdv
 VOLUME=PITCH.DARK
 
 # third-party tools required to build

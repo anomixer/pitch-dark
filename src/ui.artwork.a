@@ -23,6 +23,7 @@ kArtworkGSRootDirectory              ; length-prefixed pathname of SHGR graphic 
 ; out:   all registers and flags clobbered
 ;------------------------------------------------------------------------------
 DisplayArtwork
+         jsr   BlankTextAndHGR       ; 1. Clear text and graphics buffers to black immediately
 WeCanHazSHR
          ldx   #0                    ; SMC
 -        jsr   ResetPath
@@ -44,44 +45,119 @@ WeCanHazSHR
          phx
          beq   @loadSHR
 
-         jsr   LoadDHRFile           ; load artwork from file
+         ; 2. Switch to DHGR graphics mode FIRST
+         sta   $C00A                 ; CLRC3ROM (use internal Slot 3 ROM for DHGR/128K)
+         sta   $C000                 ; 80STORE OFF
+-        bit   $C019                 ; wait for VBL leading edge
+         bpl   -
+-        bit   $C019                 ; wait for VBL trailing edge
+         bmi   -
+         sta   $C00C                 ; CLR80VID - set shift input bit to 0
+         sta   $C00D                 ; SET80VID - clear RGB card shift-register
+         sta   $C00C                 ; CLR80VID - ensure shift input bit is 0
+         sta   $C05E                 ; DHIRESON (shift 0 into mode register)
+         sta   $C05F                 ; DHIRESOFF
+         sta   $C05E                 ; DHIRESON (shift 0 into mode register - mode 00 = pure color, NO text overlay)
+         sta   $C05F                 ; DHIRESOFF
+         sta   $C05E                 ; DHIRESON - DHGR now on
+         sta   $C00D                 ; SET80VID - 80-column on for DHGR
+         sta   $C057                 ; HIRES ON
+         sta   $C052                 ; MIXED OFF (full screen)
+         sta   $C050                 ; GRAPHICS ON
+         sta   $C054                 ; PAGE 1
+
+         ; 3. Load DHGR artwork into screen memory
+         jsr   LoadDHRFile
          !word gPathname
          !word kProDOSFileBuffer
          plx
-         bcc   +
-         jmp   SoftBell
-+        sta   $C000                 ; display double hi-res page 1
-         sta   $C00D
-         sta   $C05E
-         sta   $C001
-         sta   $C057
-         sta   $C052
-         sta   $C054
-         sta   $C050
          bcc   @waitKey
+         jmp   SoftBell
 
 @loadSHR
-         jsr   LoadSHRFile           ; load artwork from file
+         ; 2. Switch to SHR graphics mode FIRST
+         lda   #$C1                  ; SHR on: bit7(SHR)+bit6(linearize)+bit0 - matches 4cade SHRMode
+         sta   $C029                 ; VidHD / IIgs SHR mode on
+
+         ; 3. Load SHR artwork into screen memory
+         jsr   LoadSHRFile
          !word gPathname
          !word kProDOSFileBuffer
          plx
-         bcc   +
+         bcc   @waitKey
          ldx   #0
          bra   -
-+        lda   $C029
-         ora   #$81
-         sta   $C029                 ; set GS NEWVIDEO mode to turn on SHR mode
 
 @waitKey
          phx
+         ; 4. Wait for key release, then wait for any keypress or mouse click
+-        lda   $C000
+         bmi   -
          jsr   ClearPendingInput
 -        jsr   AnyKeyOrClick
          bcc   -
-         sta   $C051                 ; back to text
+         bit   $C010
+
+         ; 5. Return to text mode and restore WeeGUI
+         sta   $C05F                 ; DHIRESOFF - turn off DHGR
          sta   $C056                 ; turn off hires
+         sta   $C054                 ; page 1
+         sta   $C052                 ; full screen
+         sta   $C051                 ; back to text mode
+         sta   $C001                 ; 80STORE ON
+         sta   $C00D                 ; 80VID ON
          plx
          bne   +
          lda   $C029
          and   #$7F
          sta   $C029                 ; back to text GS-style
-+        jmp   ClearPendingInput
++        jsr   ClearPendingInput     ; clear key buffer
+         jmp   MainScreen            ; 6. Completely recreate and redraw MainScreen
+
+;------------------------------------------------------------------------------
+; BlankTextAndHGR
+; fills $0400..$07FF in Main+Aux with $A0 (blank spaces)
+; fills $2000..$3FFF in Main+Aux with $00 (black)
+;------------------------------------------------------------------------------
+BlankTextAndHGR
+         lda   #$00
+         sta   PTR
+         sta   $C000                 ; 80STORE OFF
+
+         ; Clear 80-column text page ($0400..$07FF)
+         ldx   #$04                  ; 4 pages ($0400..$07FF)
+         stx   PTR+1                 ; PTR = $0400
+         ldy   #0
+-        tya
+         and   #$78
+         cmp   #$78
+         beq   @skipHole
+         lda   #$A0                  ; ASCII blank space
+         sta   $C005                 ; write to AUX memory
+         sta   (PTR),y
+         sta   $C004                 ; write to MAIN memory
+         sta   (PTR),y
+@skipHole
+         iny
+         bne   -
+         inc   PTR+1
+         dex
+         bne   -
+
+         ; Clear HGR page 1 ($2000..$3FFF)
+         ldx   #$20                  ; 32 pages ($2000..$3FFF)
+         stx   PTR+1                 ; PTR = $2000
+         ldy   #0
+-        lda   #$00                  ; pure black
+         sta   $C005                 ; write to AUX memory
+         sta   (PTR),y
+         sta   $C004                 ; write to MAIN memory
+         sta   (PTR),y
+         iny
+         bne   -
+         inc   PTR+1
+         dex
+         bne   -
+
+         sta   $C004                 ; ensure writes stay in main memory
+         rts

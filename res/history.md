@@ -1,3 +1,11 @@
+# Revision 6 / serial number 20260826
+
+- Fixed artwork display hardware bugs and WeeGUI interactions
+- Fixed Zork Zero artwork auxtypes
+- Synced z4 binaries
+- Fixed folder confusion
+- Support Apple //e Enhanced VidHD SHR Mode
+
 # Revision 5 / serial number 20230503
 
 - Fixed spurious error when viewing Zork II hints
