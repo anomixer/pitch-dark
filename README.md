@@ -44,4 +44,4 @@ Pitch Dark R6 has been successfully tested to properly display 4096-color SHR ar
 * [izapple](https://github.com/sicklittlemonkey/izapple)
 * [Apple2TS](https://github.com/ct6502/apple2ts)
 * [microM8](https://paleotronic.com/microm8/)
-* [emu6502](https://github.com/univta0001/emu6502) with [patch](https://github.com/anomixer/emu6502)
+* [emu6502](https://github.com/univta0001/emu6502)
